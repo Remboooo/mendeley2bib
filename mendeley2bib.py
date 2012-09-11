@@ -31,7 +31,7 @@ class Mendeley2Bib:
             # TODO mac support
             hdir = os.path.expanduser("~")
             hdir = os.path.join(hdir, '.local', 'share', 'data')
-            return os.path.join(hdir, 'Mendeley Ltd.' 'Mendeley Desktop')
+            return os.path.join(hdir, 'Mendeley Ltd.', 'Mendeley Desktop')
 
     def getDatabases(self):
         if not self.databases:
