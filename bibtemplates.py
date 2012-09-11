@@ -77,7 +77,7 @@ bibtemplates = {
         @thesis{$citationKey,
             author = {$authors},
             title = {$title},
-            type = {$sourceType},
+            type = {$userType},
             institution = {$institution},
             department = {$department},
             publisher = {$publisher},
