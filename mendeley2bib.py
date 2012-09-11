@@ -66,16 +66,17 @@ class Mendeley2Bib:
         def convertEntry(self, origEntry, converter):
             entry = copy(origEntry)
             entrytype = entry['type']
+        
+            authors = self.getDocumentContributors(entry, 'DocumentAuthor', concat=False)
+            if not entry['citationKey']:
+                if authors and entry['year']:
+                    entry['citationKey'] = '%s%s' % (authors[0]['lastName'], entry['year'])
+                    log.warning('%s entry \'%s\' lacks a citation key, but it has been generated to be \'%s\'. Be careful, as changing the author/year changes this generated key. It\'s probably a good idea to set one in Mendeley Desktop.' % (entrytype, entry['title'], entry['citationKey']))
+                else:
+                    log.warning('%s entry \'%s\' lacks a citation key, and none could be generated because it lacks authors and/or a year! It will be excluded from the .bib file as there is no way to reference it.' % (entrytype, entry['title']))
+                    return None
+            log.debug('Processing entry \'%s\'' % entry['citationKey'])
             if entrytype in converter:
-                authors = self.getDocumentContributors(entry, 'DocumentAuthor', concat=False)
-                if not entry['citationKey']:
-                    if authors and entry['year']:
-                        entry['citationKey'] = '%s%s' % (authors[0]['lastName'], entry['year'])
-                        log.warning('%s entry \'%s\' lacks a citation key, but it has been generated to be \'%s\'. Be careful, as changing the author/year changes this generated key. It\'s probably a good idea to set one in Mendeley Desktop.' % (entrytype, entry['title'], entry['citationKey']))
-                    else:
-                        log.warning('%s entry \'%s\' lacks a citation key, and none could be generated because it lacks authors and/or a year! It will be excluded from the .bib file as there is no way to reference it.' % (entrytype, entry['title']))
-                        return None
-                log.debug('Processing entry \'%s\'' % entry['citationKey'])
                 entry['authors'] = self.getDocumentContributors(entry, 'DocumentAuthor')
                 entry['editors'] = self.getDocumentContributors(entry, 'DocumentEditor')
                 kws = self.conn.execute('SELECT * FROM DocumentKeywords WHERE documentId=?', [entry['id']]).fetchall()
@@ -95,10 +96,14 @@ class Mendeley2Bib:
                     
                 return Template(converter[entrytype]).substitute(entry)
             else:
-                log.warning('No conversion available for entry type %s!' % entry['type'])
+                log.warning('No conversion template available for entry type \'%s\'! Entry \'%s\' will not be available in your .bib file.' % (entry['type'], entry['citationKey']))
                 return None
 
 if __name__=='__main__':
+    if sys.version_info < (3, 0):
+        print('This ain\'t gonna work out I\'m afraid; better install Python 3.x!')
+        sys.exit(-1)
+
     m2b = Mendeley2Bib()
     defaultDB = m2b.getDatabases()[0] if len(m2b.getDatabases()) is 1 else None
 
