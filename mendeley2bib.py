@@ -85,8 +85,8 @@ class Mendeley2Bib:
                 entry['url'] = url['url'] if url else ''
                 entry['month'] = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'][int(entry['month']-1)] if entry['month'] else ''
                 entry['pages'] = entry['pages'].replace('-', '--') if entry['pages'] else ''
-                if entrytype == 'Thesis' and not entry['sourceType']:
-                    log.warning('Entry \'%s\' is of type \'Thesis\', but requires a field \'type\' not supported by Mendeley. Please use the \'Type of Work\' field to specify the type of thesis, e.g. \'Master\'s Thesis\' or \'PhD Thesis\'!' % entry['citationKey'])
+                if entrytype == 'Thesis' and not entry['userType']:
+                    log.warning('Entry \'%s\' is of type \'Thesis\', but requires a field \'type\' not set automatically by Mendeley. Please use the \'Type\' field to specify the type of thesis, e.g. \'Master\'s Thesis\' or \'PhD Thesis\'!' % entry['citationKey'])
                 for key in entry:
                     if type(entry[key]) == bytes:
                         entry[key] = entry[key].decode('UTF-8')
