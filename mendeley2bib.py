@@ -75,6 +75,7 @@ class Mendeley2Bib:
                     else:
                         log.warning('%s entry \'%s\' lacks a citation key, and none could be generated because it lacks authors and/or a year! It will be excluded from the .bib file as there is no way to reference it.' % (entrytype, entry['title']))
                         return None
+                log.debug('Processing entry \'%s\'' % entry['citationKey'])
                 entry['authors'] = self.getDocumentContributors(entry, 'DocumentAuthor')
                 entry['editors'] = self.getDocumentContributors(entry, 'DocumentEditor')
                 kws = self.conn.execute('SELECT * FROM DocumentKeywords WHERE documentId=?', [entry['id']]).fetchall()
@@ -98,15 +99,16 @@ class Mendeley2Bib:
                 return None
 
 if __name__=='__main__':
-    logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
-
     m2b = Mendeley2Bib()
     defaultDB = m2b.getDatabases()[0] if len(m2b.getDatabases()) is 1 else None
 
     argparser = ArgumentParser(description='Convert Mendeley entries to a Biblatex-compatible bib file')
     argparser.add_argument('-d', '--dbfile', metavar='NAME', help='The database to load. Use -l to list all available databases. Required when more than one database is available.', default=defaultDB)
     argparser.add_argument('-l', '--list', dest='list', action='store_const', const=True, default=False, help='In stead of processing a database, list available databases.')
+    argparser.add_argument('-v', '--verbose', dest='loglevel', action='store_const', const=logging.DEBUG, default=logging.INFO, help='Set debug level to DEBUG in stead of INFO')
     args = argparser.parse_args()
+    
+    logging.basicConfig(level=args.loglevel, format='%(levelname)s: %(message)s')
 
     if args.list:
         print('Available databases:')
