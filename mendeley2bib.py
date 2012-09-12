@@ -71,7 +71,12 @@ class Mendeley2Bib:
             if not entry['citationKey']:
                 if authors and entry['year']:
                     entry['citationKey'] = '%s%s' % (authors[0]['lastName'], entry['year'])
-                    log.warning('%s entry \'%s\' lacks a citation key, but it has been generated to be \'%s\'. Be careful, as changing the author/year changes this generated key. It\'s probably a good idea to set one in Mendeley Desktop.' % (entrytype, entry['title'], entry['citationKey']))
+                    if args.writeback_keys:
+                        self.conn.execute('UPDATE Documents SET citationKey=? WHERE id=?', [entry['citationKey'], entry['id']])
+                        self.conn.commit()
+                        log.info('%s entry \'%s\' lacks a citation key, generated as \'%s\' and written to Mendeley db' % (entrytype, entry['title'], entry['citationKey']))
+                    else:
+                        log.warning('%s entry \'%s\' lacks a citation key, but it has been generated to be \'%s\'. Be careful, as changing the author/year changes this generated key. It\'s probably a good idea to set one in Mendeley Desktop, or use the -k argument.' % (entrytype, entry['title'], entry['citationKey']))
                 else:
                     log.warning('%s entry \'%s\' lacks a citation key, and none could be generated because it lacks authors and/or a year! It will be excluded from the .bib file as there is no way to reference it.' % (entrytype, entry['title']))
                     return None
@@ -110,6 +115,7 @@ if __name__=='__main__':
     argparser = ArgumentParser(description='Convert Mendeley entries to a Biblatex-compatible bib file')
     argparser.add_argument('-d', '--dbfile', metavar='NAME', help='The database to load. Use -l to list all available databases. Required when more than one database is available.', default=defaultDB)
     argparser.add_argument('-l', '--list', dest='list', action='store_const', const=True, default=False, help='In stead of processing a database, list available databases.')
+    argparser.add_argument('-k', '--write-keys', dest='writeback_keys', action='store_const', const=True, default=False, help='When an absent citation key is generated, write it back to the Mendeley database. NOTE: this only works when Mendeley Desktop is not running, since it locks its database')
     argparser.add_argument('-v', '--verbose', dest='loglevel', action='store_const', const=logging.DEBUG, default=logging.INFO, help='Set debug level to DEBUG in stead of INFO')
     args = argparser.parse_args()
     
