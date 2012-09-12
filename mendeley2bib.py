@@ -61,7 +61,7 @@ class Mendeley2Bib:
 
         def getDocumentContributors(self, entry, type, concat=True):
             authors = self.conn.execute('SELECT * FROM DocumentContributors WHERE contribution=? AND documentId=?', [type, entry['id']]).fetchall()
-            return ' and '.join(['%s, %s' % (e['firstNames'], e['lastName']) for e in authors]) if concat else authors
+            return ' and '.join(['%s, %s' % (e['lastName'], e['firstNames']) for e in authors]) if concat else authors
 
         def convertEntry(self, origEntry, converter):
             entry = copy(origEntry)
