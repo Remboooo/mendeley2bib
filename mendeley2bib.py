@@ -137,8 +137,13 @@ if __name__=='__main__':
 
     latex.register()
 
+    numConverted = 0
+
     with m2b.openDatabase(args.dbfile) as db:
         for entry in db.fetchEntries():
             converted = db.convertEntry(entry, bibtemplates)
             if converted:
                 print(dedent(converted))
+                numConverted += 1
+
+    log.info('Successfully converted %d Mendeley Desktop entries from database %s' % (numConverted, args.dbfile))
