@@ -85,7 +85,7 @@ class Mendeley2Bib:
                 entry['tags'] = ','.join([tag['tag'] for tag in tags])
                 url = self.conn.execute('SELECT * FROM DocumentUrls WHERE documentId=? LIMIT 1', [entry['id']]).fetchone()
                 entry['url'] = url['url'] if url else ''
-                entry['month'] = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'][int(entry['month']-1)] if entry['month'] else ''
+                entry['month'] = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'][int(entry['month']-1)] if entry['month'] else '{}'
                 entry['pages'] = entry['pages'].replace('-', '--') if entry['pages'] else ''
                 if entrytype == 'Thesis' and not entry['userType']:
                     log.warning('Entry \'%s\' is of type \'Thesis\', but requires a field \'type\' not set automatically by Mendeley. Please use the \'Type\' field to specify the type of thesis, e.g. \'Master\'s Thesis\' or \'PhD Thesis\'!' % entry['citationKey'])
