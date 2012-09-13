@@ -68,7 +68,6 @@ class Mendeley2Bib:
             if onlyFavourites:
                 query = '%s AND d.favourite = \'true\'' % query
             query = '%s;' % query
-            print(query)
             return self.conn.execute(query, params).fetchall()
             
         def getFolders(self):
