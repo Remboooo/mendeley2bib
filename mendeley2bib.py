@@ -69,15 +69,14 @@ class Mendeley2Bib:
             entries = self.conn.execute(query, params).fetchall()
             for entry in entries:
                 authors = self.getDocumentContributors(entry, 'DocumentAuthor')
-                citationKey = entry['citationKey']
                 entrytype = entry['type']
-                if not citationKey:
+                if not entry['citationKey']:
                     if authors and entry['year']:
-                        citationKey = '%s%s' % (authors[0]['lastName'], entry['year'])
+                        entry['citationKey'] = '%s%s' % (authors[0]['lastName'], entry['year'])
                         if writebackKeys:
-                            self.conn.execute('UPDATE Documents SET citationKey=? WHERE id=?', [citationKey, entry['id']])
+                            self.conn.execute('UPDATE Documents SET citationKey=? WHERE id=?', [entry['citationKey'], entry['id']])
                             self.conn.commit()
-                            log.info('%s entry \'%s\' lacks a citation key, generated as \'%s\' and written to Mendeley db' % (entrytype, entry['title'], citationKey))
+                            log.info('%s entry \'%s\' lacks a citation key, generated as \'%s\' and written to Mendeley db' % (entrytype, entry['title'], entry['citationKey']))
                         else:
                             log.warning('%s entry \'%s\' lacks a citation key, but it has been generated to be \'%s\'. Be careful, as changing the author/year changes this generated key. It\'s probably a good idea to set one in Mendeley Desktop, or use the -k argument.' % (entrytype, entry['title'], entry['citationKey']))
                     else:
@@ -207,7 +206,7 @@ if __name__=='__main__':
     argparser.add_argument('-v', '--verbose', dest='loglevel', action='store_const', const=logging.DEBUG, default=logging.INFO, help='Set debug level to DEBUG in stead of INFO')
     args = argparser.parse_args()
     
-    logging.basicConfig(level=args.loglevel, format='%(levelname)s: %(message)s')
+    logging.basicConfig(level=args.loglevel, format='\n%(levelname)s: %(message)s')
 
     if args.list:
         print('Available databases:')
