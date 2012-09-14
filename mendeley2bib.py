@@ -198,7 +198,7 @@ if __name__=='__main__':
 
     argparser = ArgumentParser(description='Convert Mendeley entries to a Biblatex-compatible bib file')
     argparser.add_argument('-d', '--dbfile', metavar='NAME', help='The database to load. Use -l to list all available databases. Required when more than one database is available.', default=defaultDB)
-    argparser.add_argument('-f', '--folder', metavar='FOLDER', help='The folder to process entries from. By default all folders are traversed. Use --lf to see available folders. May be either given as ID or name; when the argument is numeric, it is assumed to be the ID.', default=None)
+    argparser.add_argument('-f', '--folder', metavar='FOLDER', help='The folder to process entries from. By default all folders are traversed. Use -lf to see available folders. May be either given as ID or name; when the argument is numeric, it is assumed to be the ID.', default=None)
     argparser.add_argument('-s', '--starred', dest='onlyFavourites', action='store_const', const=True, default=False, help='Only process starred (favourite) items')
     argparser.add_argument('-l', '--list', dest='list', action='store_const', const=True, default=False, help='In stead of processing a database, list available databases.')
     argparser.add_argument('-lf', '--list-folders', dest='listfolders', action='store_const', const=True, default=False, help='Just list all available Mendeley folders')

@@ -61,7 +61,7 @@ class BibConverter(MendeleyEntryConverter):
                 'keywords',
                 ('mendeley-tags', self.getTags),
                 ('pages', self.getPages),
-                'publisher'
+                'publisher',
             ],
             "JournalArticle": [
                 'abstract',
@@ -76,16 +76,16 @@ class BibConverter(MendeleyEntryConverter):
             "Patent": [
                 ('holder', 'owner'),
                 ('number', 'revisionNumber'),
-                'publisher'
+                'publisher',
             ],
             "Thesis": [
                 'department',
                 ('type', self.getUserType),
                 'institution',
-                'publisher'
+                'publisher',
             ],
             "WebPage": [
-                ('howpublished', self.getHowPublishedURL)
+                ('howpublished', self.getHowPublishedURL),
             ]
         }
     
