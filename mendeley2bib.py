@@ -24,12 +24,12 @@ class Mendeley2Bib:
         if platform.system() == 'Windows':
             from win32com.shell import shellcon, shell
             hdir = shell.SHGetFolderPath(0, shellcon.CSIDL_LOCAL_APPDATA, 0, 0)
-            return os.path.join(hdir, 'Mendeley Ltd', 'Mendeley Desktop')
+            hdir = os.path.join(hdir, 'Mendeley Ltd', 'Mendeley Desktop')
+        elif platform.system() == 'Darwin':
+            hdir = os.path.expanduser("~/Library/Application Support/Mendeley Desktop")
         else:
-            # TODO mac support
-            hdir = os.path.expanduser("~")
-            hdir = os.path.join(hdir, '.local', 'share', 'data')
-            return os.path.join(hdir, 'Mendeley Ltd.', 'Mendeley Desktop')
+            hdir = os.path.expanduser("~/.local/share/data/Mendeley Ltd./Mendeley Desktop")
+        return hdir
 
     def getDatabases(self):
         if not self.databases:
@@ -83,7 +83,7 @@ class Mendeley2Bib:
                         log.warning('%s entry \'%s\' lacks a citation key, and none could be generated because it lacks authors and/or a year! It will be excluded from the .bib file as there is no way to reference it.' % (entrytype, entry['title']))
                         return None
             return [ entry for entry in entries if entry['citationKey'] ]
-            
+
         def getFolders(self):
             folders = {}
             rows = self.conn.execute('SELECT * FROM Folders;').fetchall()
@@ -97,7 +97,7 @@ class Mendeley2Bib:
             for (id, folder) in folders.items():
                 names[id] = getFolderName(id, folders)
             return names
-        
+
         def getFolderID(self, identifier):
             if identifier.isdigit():
                 matches = lambda id, item: int(id) == int(item[0])
@@ -110,24 +110,24 @@ class Mendeley2Bib:
 
         def getDocumentContributors(self, entry, type):
             return self.conn.execute('SELECT * FROM DocumentContributors WHERE contribution=? AND documentId=?', [type, entry['id']]).fetchall()
-            
+
         def getTags(self, entry):
             return self.conn.execute('SELECT * FROM DocumentTags WHERE documentId=?', [entry['id']]).fetchall()
-            
+
         def getKeywords(self, entry):
             return self.conn.execute('SELECT * FROM DocumentKeywords WHERE documentId=?', [entry['id']]).fetchall()
-            
+
         def getURL(self, entry):
             return self.conn.execute('SELECT * FROM DocumentUrls WHERE documentId=? LIMIT 1', [entry['id']]).fetchone()
-        
+
         def getURLs(self, entry):
             return self.conn.execute('SELECT * FROM DocumentUrls WHERE documentId=?', [entry['id']]).fetchall()
-            
+
 
 """
 'Abstract' class which should be extended by all converter classes to convert a list of entries into an output string.
 Has access to an opened Mendeley2Bib.openDatabase class.
-""" 
+"""
 class MendeleyEntryConverter:
     db = None
 
@@ -141,11 +141,11 @@ class MendeleyEntryConverter:
         count = sum([(1 if entry else 0) for entry in entries])
         output = ''.join([(entry if entry else '') for entry in entries ])
         return (count, output)
-        
+
     def buildEntry(self, entry, entryType, members):
         entryMembers = self.entryMemberSeparator.join([self.entryMemberTemplate.substitute({'key': key, 'value': value}) for (key, value) in members])
         return self.entryTemplate.substitute(dict(list(entry.items()) + [('entryType', entryType), ('members', entryMembers)]))
-        
+
     def convertEntry(self, origEntry):
         entry = copy(origEntry) # make sure the original entry is not modified
         entrytype = entry['type']
@@ -186,7 +186,7 @@ class MendeleyEntryConverter:
             if value is not None:
                 outputEntries.append((key, value))
         return self.buildEntry(entry, entrytype, outputEntries)
-        
+
 
 if __name__=='__main__':
     if sys.version_info < (3, 0):
@@ -205,7 +205,7 @@ if __name__=='__main__':
     argparser.add_argument('-k', '--write-keys', dest='writebackKeys', action='store_const', const=True, default=False, help='When an absent citation key is generated, write it back to the Mendeley database. NOTE: this only works when Mendeley Desktop is not running, since it locks its database')
     argparser.add_argument('-v', '--verbose', dest='loglevel', action='store_const', const=logging.DEBUG, default=logging.INFO, help='Set debug level to DEBUG in stead of INFO')
     args = argparser.parse_args()
-    
+
     logging.basicConfig(level=args.loglevel, format='\n%(levelname)s: %(message)s')
 
     if args.list:
@@ -217,7 +217,7 @@ if __name__=='__main__':
         if choices is 0:
             print('None! Please connect to a Mendeley account first using Mendeley Desktop')
         sys.exit(0)
-        
+
     if not args.dbfile:
         print('Please specify the database file to use. Choices are:')
         choices = 0
@@ -234,7 +234,7 @@ if __name__=='__main__':
             for (id, folder) in sorted(db.getFolders().items(), key=lambda x: x[1]):
                 print('%d: %s' % (id, folder))
             sys.exit(0)
-        
+
     numConverted = 0
 
     with m2b.openDatabase(args.dbfile) as db:
