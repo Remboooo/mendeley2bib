@@ -1,4 +1,5 @@
 # -*- coding: utf-8 *-*
+from __future__ import unicode_literals
 import os
 import sys
 import sqlite3
@@ -189,8 +190,8 @@ class MendeleyEntryConverter:
 
 
 if __name__=='__main__':
-    if sys.version_info < (3, 0):
-        print('This ain\'t gonna work out I\'m afraid; better install Python 3.x!')
+    if sys.version_info < (2, 6):
+        print('This ain\'t gonna work out I\'m afraid; better install Python 2.6+!')
         sys.exit(-1)
 
     m2b = Mendeley2Bib()
