@@ -96,7 +96,7 @@ class BibConverter(MendeleyEntryConverter):
         
     def getConcatDocumentContributors(self, entry, type):
         contributors = self.db.getDocumentContributors(entry, type)
-        return ' and '.join(['%s, %s' % (e['lastName'], e['firstNames']) for e in contributors])
+        return ' and '.join(['%s, %s' % (e['lastName'], e['firstNames']) for e in contributors]) if contributors else None
     
     def getAuthors(self, entry):
         return self.processGenericEntry(self.getConcatDocumentContributors(entry, 'DocumentAuthor'))
