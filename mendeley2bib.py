@@ -139,7 +139,7 @@ class MendeleyEntryConverter:
     def convertEntries(self, entryset):
         entries = [self.convertEntry(entry) for entry in entryset]
         count = sum([(1 if entry else 0) for entry in entries])
-        output = ''.join([('%s\n' % entry if entry else '') for entry in entries ])
+        output = ''.join([(entry if entry else '') for entry in entries ])
         return (count, output)
         
     def buildEntry(self, entry, entryType, members):
