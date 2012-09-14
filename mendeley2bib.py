@@ -6,9 +6,7 @@ import unicodedata
 import latex
 import logging
 from copy import copy
-from textwrap import dedent
 from string import Template
-from bibtemplates import bibtemplates
 from argparse import ArgumentParser
 
 log = logging.getLogger(__name__)
@@ -56,7 +54,7 @@ class Mendeley2Bib:
         def __exit__(self, type, value, traceback):
             self.conn.close()
 
-        def getEntries(self, folder=None, onlyFavourites=False):
+        def getEntries(self, folder=None, onlyFavourites=False, writebackKeys=False):
             query = 'SELECT * FROM Documents AS d WHERE deletionPending != \'true\''
             params = []
             if folder is not None:
@@ -68,7 +66,24 @@ class Mendeley2Bib:
             if onlyFavourites:
                 query = '%s AND d.favourite = \'true\'' % query
             query = '%s;' % query
-            return self.conn.execute(query, params).fetchall()
+            entries = self.conn.execute(query, params).fetchall()
+            for entry in entries:
+                authors = self.getDocumentContributors(entry, 'DocumentAuthor')
+                citationKey = entry['citationKey']
+                entrytype = entry['type']
+                if not citationKey:
+                    if authors and entry['year']:
+                        citationKey = '%s%s' % (authors[0]['lastName'], entry['year'])
+                        if writebackKeys:
+                            self.conn.execute('UPDATE Documents SET citationKey=? WHERE id=?', [citationKey, entry['id']])
+                            self.conn.commit()
+                            log.info('%s entry \'%s\' lacks a citation key, generated as \'%s\' and written to Mendeley db' % (entrytype, entry['title'], citationKey))
+                        else:
+                            log.warning('%s entry \'%s\' lacks a citation key, but it has been generated to be \'%s\'. Be careful, as changing the author/year changes this generated key. It\'s probably a good idea to set one in Mendeley Desktop, or use the -k argument.' % (entrytype, entry['title'], entry['citationKey']))
+                    else:
+                        log.warning('%s entry \'%s\' lacks a citation key, and none could be generated because it lacks authors and/or a year! It will be excluded from the .bib file as there is no way to reference it.' % (entrytype, entry['title']))
+                        return None
+            return [ entry for entry in entries if entry['citationKey'] ]
             
         def getFolders(self):
             folders = {}
@@ -94,50 +109,85 @@ class Mendeley2Bib:
                     return folder[0]
             return None
 
-        def getDocumentContributors(self, entry, type, concat=True):
-            authors = self.conn.execute('SELECT * FROM DocumentContributors WHERE contribution=? AND documentId=?', [type, entry['id']]).fetchall()
-            return ' and '.join(['%s, %s' % (e['lastName'], e['firstNames']) for e in authors]) if concat else authors
-
-        def convertEntry(self, origEntry, converter):
-            entry = copy(origEntry)
-            entrytype = entry['type']
+        def getDocumentContributors(self, entry, type):
+            return self.conn.execute('SELECT * FROM DocumentContributors WHERE contribution=? AND documentId=?', [type, entry['id']]).fetchall()
+            
+        def getTags(self, entry):
+            return self.conn.execute('SELECT * FROM DocumentTags WHERE documentId=?', [entry['id']]).fetchall()
+            
+        def getKeywords(self, entry):
+            return self.conn.execute('SELECT * FROM DocumentKeywords WHERE documentId=?', [entry['id']]).fetchall()
+            
+        def getURL(self, entry):
+            return self.conn.execute('SELECT * FROM DocumentUrls WHERE documentId=? LIMIT 1', [entry['id']]).fetchone()
         
-            authors = self.getDocumentContributors(entry, 'DocumentAuthor', concat=False)
-            if not entry['citationKey']:
-                if authors and entry['year']:
-                    entry['citationKey'] = '%s%s' % (authors[0]['lastName'], entry['year'])
-                    if args.writeback_keys:
-                        self.conn.execute('UPDATE Documents SET citationKey=? WHERE id=?', [entry['citationKey'], entry['id']])
-                        self.conn.commit()
-                        log.info('%s entry \'%s\' lacks a citation key, generated as \'%s\' and written to Mendeley db' % (entrytype, entry['title'], entry['citationKey']))
-                    else:
-                        log.warning('%s entry \'%s\' lacks a citation key, but it has been generated to be \'%s\'. Be careful, as changing the author/year changes this generated key. It\'s probably a good idea to set one in Mendeley Desktop, or use the -k argument.' % (entrytype, entry['title'], entry['citationKey']))
+        def getURLs(self, entry):
+            return self.conn.execute('SELECT * FROM DocumentUrls WHERE documentId=?', [entry['id']]).fetchall()
+            
+
+"""
+'Abstract' class which should be extended by all converter classes to convert a list of entries into an output string.
+Has access to an opened Mendeley2Bib.openDatabase class.
+""" 
+class MendeleyEntryConverter:
+    db = None
+
+    def __init__(self, database):
+        self.db = database
+        self.entryTemplate = Template(self.entryTemplate)
+        self.entryMemberTemplate = Template(self.entryMemberTemplate)
+
+    def convertEntries(self, entryset):
+        entries = [self.convertEntry(entry) for entry in entryset]
+        count = sum([(1 if entry else 0) for entry in entries])
+        output = ''.join([('%s\n' % entry if entry else '') for entry in entries ])
+        return (count, output)
+        
+    def buildEntry(self, entry, entryType, members):
+        entryMembers = self.entryMemberSeparator.join([self.entryMemberTemplate.substitute({'key': key, 'value': value}) for (key, value) in members])
+        return self.entryTemplate.substitute(dict(list(entry.items()) + [('entryType', entryType), ('members', entryMembers)]))
+        
+    def convertEntry(self, origEntry):
+        entry = copy(origEntry) # make sure the original entry is not modified
+        entrytype = entry['type']
+        citationKey = entry['citationKey']
+        log.debug('Processing entry \'%s\'' % citationKey)
+        if not entrytype in self.entryTypeMap:
+            log.warning('No conversion available for entry type \'%s\'! Entry \'%s\' will not be available in your .bib file.' % (entry['type'], citationKey))
+            return None
+        outputEntryType = self.entryTypeMap[entrytype]
+        entries = copy(self.commonEntries)
+        if entrytype in self.entryMap:
+            entries.extend(self.entryMap[entrytype])
+        outputEntries = []
+        for e in entries:
+            raw = None
+            key = None
+            value = None
+            if isinstance(e, tuple):
+                key = e[0]
+                if isinstance(e[1], str):
+                    # mapped simply to another variable
+                    if e[1]  in entry:
+                        raw = entry[e[1]]
+                        if type(raw) == bytes:
+                            raw = raw.decode('UTF-8')
+                    value = self.processGenericEntry(raw)
                 else:
-                    log.warning('%s entry \'%s\' lacks a citation key, and none could be generated because it lacks authors and/or a year! It will be excluded from the .bib file as there is no way to reference it.' % (entrytype, entry['title']))
-                    return None
-            log.debug('Processing entry \'%s\'' % entry['citationKey'])
-            if entrytype in converter:
-                entry['authors'] = self.getDocumentContributors(entry, 'DocumentAuthor')
-                entry['editors'] = self.getDocumentContributors(entry, 'DocumentEditor')
-                kws = self.conn.execute('SELECT * FROM DocumentKeywords WHERE documentId=?', [entry['id']]).fetchall()
-                entry['keywords'] = ','.join([kw['keyword'] for kw in kws])
-                tags = self.conn.execute('SELECT * FROM DocumentTags WHERE documentId=?', [entry['id']]).fetchall()
-                entry['tags'] = ','.join([tag['tag'] for tag in tags])
-                url = self.conn.execute('SELECT * FROM DocumentUrls WHERE documentId=? LIMIT 1', [entry['id']]).fetchone()
-                entry['url'] = url['url'] if url else ''
-                entry['month'] = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'][int(entry['month']-1)] if entry['month'] else '{}'
-                entry['pages'] = entry['pages'].replace('-', '--') if entry['pages'] else ''
-                if entrytype == 'Thesis' and not entry['userType']:
-                    log.warning('Entry \'%s\' is of type \'Thesis\', but requires a field \'type\' not set automatically by Mendeley. Please use the \'Type\' field to specify the type of thesis, e.g. \'Master\'s Thesis\' or \'PhD Thesis\'!' % entry['citationKey'])
-                for key in entry:
-                    if type(entry[key]) == bytes:
-                        entry[key] = entry[key].decode('UTF-8')
-                    entry[key] = str(entry[key]).encode('latex').decode('ASCII') if entry[key] else ''
-                    
-                return Template(converter[entrytype]).substitute(entry)
+                    # mapped to a function (we hope)
+                    value = e[1](entry)
             else:
-                log.warning('No conversion template available for entry type \'%s\'! Entry \'%s\' will not be available in your .bib file.' % (entry['type'], entry['citationKey']))
-                return None
+                # 1-to-1 relation
+                key = e
+                if e in entry:
+                    raw = entry[key]
+                    if type(raw) == bytes:
+                        raw = raw.decode('UTF-8')
+                value = self.processGenericEntry(raw)
+            if value is not None:
+                outputEntries.append((key, value))
+        return self.buildEntry(entry, entrytype, outputEntries)
+        
 
 if __name__=='__main__':
     if sys.version_info < (3, 0):
@@ -153,7 +203,7 @@ if __name__=='__main__':
     argparser.add_argument('-s', '--starred', dest='onlyFavourites', action='store_const', const=True, default=False, help='Only process starred (favourite) items')
     argparser.add_argument('-l', '--list', dest='list', action='store_const', const=True, default=False, help='In stead of processing a database, list available databases.')
     argparser.add_argument('-lf', '--list-folders', dest='listfolders', action='store_const', const=True, default=False, help='Just list all available Mendeley folders')
-    argparser.add_argument('-k', '--write-keys', dest='writeback_keys', action='store_const', const=True, default=False, help='When an absent citation key is generated, write it back to the Mendeley database. NOTE: this only works when Mendeley Desktop is not running, since it locks its database')
+    argparser.add_argument('-k', '--write-keys', dest='writebackKeys', action='store_const', const=True, default=False, help='When an absent citation key is generated, write it back to the Mendeley database. NOTE: this only works when Mendeley Desktop is not running, since it locks its database')
     argparser.add_argument('-v', '--verbose', dest='loglevel', action='store_const', const=logging.DEBUG, default=logging.INFO, help='Set debug level to DEBUG in stead of INFO')
     args = argparser.parse_args()
     
@@ -186,21 +236,17 @@ if __name__=='__main__':
                 print('%d: %s' % (id, folder))
             sys.exit(0)
         
-    latex.register()
-
     numConverted = 0
 
     with m2b.openDatabase(args.dbfile) as db:
+        from bibconverter import BibConverter
         folderID = None
         if args.folder:
             folderID = db.getFolderID(args.folder)
             if folderID is None:
                 log.error('Folder \'%s\' not found! Use --lf to list available folders.' % args.folder)
                 sys.exit(-1)
-        for entry in db.getEntries(folder=folderID, onlyFavourites=args.onlyFavourites):
-            converted = db.convertEntry(entry, bibtemplates)
-            if converted:
-                print(dedent(converted))
-                numConverted += 1
+        (numConverted, output) = BibConverter(db).convertEntries(db.getEntries(folder=folderID, onlyFavourites=args.onlyFavourites, writebackKeys=args.writebackKeys))
+        print(output)
 
     log.info('Successfully converted %d Mendeley Desktop entries from database %s' % (numConverted, args.dbfile))
