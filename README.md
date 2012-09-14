@@ -3,7 +3,7 @@ mendeley2bib
 
 Python tool to export a Mendeley Desktop database into a biblatex-compatible .bib file.
 
-BEWARE: This is Python 3, and won't work on Python 2.x! Also, on Windows, it requires pywin32 (http://sourceforge.net/projects/pywin32/) to be installed.
+You will need Python 2.6+ or 3.x for this to work. Also, on Windows, it requires pywin32 (http://sourceforge.net/projects/pywin32/) to be installed.
 
 Currently works on Windows, Linux and OSX.
 
