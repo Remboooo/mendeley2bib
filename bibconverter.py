@@ -22,6 +22,7 @@ class BibConverter(MendeleyEntryConverter):
             "ConferenceProceedings": "inproceedings",
             "JournalArticle": "article",
             "Book": "book",
+            "BookSection": "incollection",
             "Patent": "patent",
             "Thesis": "thesis",
             "WebPage": "misc",
@@ -39,7 +40,7 @@ class BibConverter(MendeleyEntryConverter):
             ('author', self.getAuthors),
             'year',
             ('month', self.getMonth),
-            'title',
+            ('title', lambda e: '{%s}' % self.processGenericEntry(e['title'])), # title needs an extra pair of {} for some reason
             'isbn',
             'issn',
             'doi',
@@ -49,6 +50,16 @@ class BibConverter(MendeleyEntryConverter):
         self.entryMap = {
             "Book": [
                 ('address', 'city'),
+                'edition',
+                ('editor', self.getEditors),
+                'publisher',
+                'volume',
+                ('url', self.getURL),
+            ],
+            "BookSection": [
+                ('address', 'city'),
+                ('booktitle', 'publication'),
+                'chapter',
                 'edition',
                 ('editor', self.getEditors),
                 'publisher',

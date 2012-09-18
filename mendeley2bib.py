@@ -119,10 +119,12 @@ class Mendeley2Bib:
             return self.conn.execute('SELECT * FROM DocumentKeywords WHERE documentId=?', [entry['id']]).fetchall()
 
         def getURL(self, entry):
-            return self.conn.execute('SELECT * FROM DocumentUrls WHERE documentId=? LIMIT 1', [entry['id']]).fetchone()
+            url = self.conn.execute('SELECT * FROM DocumentUrls WHERE documentId=? LIMIT 1', [entry['id']]).fetchone()
+            return url['url'] if url else None
 
         def getURLs(self, entry):
-            return self.conn.execute('SELECT * FROM DocumentUrls WHERE documentId=?', [entry['id']]).fetchall()
+            urls = self.conn.execute('SELECT * FROM DocumentUrls WHERE documentId=?', [entry['id']]).fetchall()
+            return [url['url'] for url in urls] if urls else []
 
 
 """
@@ -186,7 +188,7 @@ class MendeleyEntryConverter:
                 value = self.processGenericEntry(raw)
             if value is not None:
                 outputEntries.append((key, value))
-        return self.buildEntry(entry, entrytype, outputEntries)
+        return self.buildEntry(entry, outputEntryType, outputEntries)
 
 
 if __name__=='__main__':
