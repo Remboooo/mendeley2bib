@@ -113,7 +113,7 @@ class BibConverter(MendeleyEntryConverter):
         return self.processGenericEntry(self.getConcatDocumentContributors(entry, 'DocumentAuthor'))
 
     def getEditors(self, entry):
-        return self.processGenericEntry(self.getConcatDocumentContributors(entry, 'DocumentAuthor'))
+        return self.processGenericEntry(self.getConcatDocumentContributors(entry, 'DocumentEditor'))
 
     def getMonth(self, entry):
         return ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'][int(entry['month']-1)] if entry['month'] else None
