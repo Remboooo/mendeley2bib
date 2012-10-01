@@ -79,7 +79,7 @@ class Mendeley2Bib:
                             self.conn.commit()
                             log.info('%s entry \'%s\' lacks a citation key, generated as \'%s\' and written to Mendeley db' % (entrytype, entry['title'], entry['citationKey']))
                         else:
-                            log.warning('%s entry \'%s\' lacks a citation key, but it has been generated to be \'%s\'. Be careful, as changing the author/year changes this generated key. It\'s probably a good idea to set one in Mendeley Desktop, or use the -k argument.' % (entrytype, entry['title'], entry['citationKey']))
+                            log.warning('%s entry \'%s\' lacks a citation key, but it has been generated to be \'%s\'. Be careful, as changing the author/year changes this generated key. Set one in Mendeley Desktop (quickest way: ctrl+a ctrl+k), or use the -k argument.' % (entrytype, entry['title'], entry['citationKey']))
                     else:
                         log.warning('%s entry \'%s\' lacks a citation key, and none could be generated because it lacks authors and/or a year! It will be excluded from the .bib file as there is no way to reference it.' % (entrytype, entry['title']))
                         return None
