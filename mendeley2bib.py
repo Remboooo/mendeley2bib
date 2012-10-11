@@ -55,7 +55,7 @@ class Mendeley2Bib:
         def __exit__(self, type, value, traceback):
             self.conn.close()
 
-        def getEntries(self, folder=None, onlyFavourites=False, writebackKeys=False):
+        def getEntries(self, folder=None, group=None, onlyFavourites=False, writebackKeys=False):
             query = 'SELECT * FROM Documents AS d WHERE deletionPending != \'true\''
             params = []
             if folder is not None:
@@ -64,6 +64,9 @@ class Mendeley2Bib:
                 else:
                     query = '%s AND d.id IN (SELECT documentID FROM DocumentFolders AS df WHERE df.folderId = ?)' % query
                     params.append(folder)
+            if group is not None:
+                query = '%s AND d.id IN (SELECT documentID FROM RemoteDocuments AS rd WHERE rd.groupId = ?)' % query
+                params.append(group)
             if onlyFavourites:
                 query = '%s AND d.favourite = \'true\'' % query
             query = '%s;' % query
@@ -98,6 +101,13 @@ class Mendeley2Bib:
             for (id, folder) in folders.items():
                 names[id] = getFolderName(id, folders)
             return names
+            
+        def getGroups(self):
+            rows = self.conn.execute('SELECT * FROM Groups WHERE id != 0;').fetchall()
+            names = {0: '<no group>'}
+            for row in rows:
+                names[row['id']] = row['name']
+            return names
 
         def getFolderID(self, identifier):
             if identifier.isdigit():
@@ -107,6 +117,16 @@ class Mendeley2Bib:
             for folder in self.getFolders().items():
                 if matches(identifier, folder):
                     return folder[0]
+            return None
+            
+        def getGroupID(self, identifier):
+            if identifier.isdigit():
+                matches = lambda id, item: int(id) == int(item[0])
+            else:
+                matches = lambda id, item: id == item[1]
+            for group in self.getGroups().items():
+                if matches(identifier, group):
+                    return group[0]
             return None
 
         def getDocumentContributors(self, entry, type):
@@ -202,9 +222,13 @@ if __name__=='__main__':
     argparser = ArgumentParser(description='Convert Mendeley entries to a Biblatex-compatible bib file')
     argparser.add_argument('-d', '--dbfile', metavar='NAME', help='The database to load. Use -l to list all available databases. Required when more than one database is available.', default=defaultDB)
     argparser.add_argument('-f', '--folder', metavar='FOLDER', help='The folder to process entries from. By default all folders are traversed. Use -lf to see available folders. May be either given as ID or name; when the argument is numeric, it is assumed to be the ID.', default=None)
+    argparser.add_argument('-g', '--group', metavar='GROUP', help='The group to process entries from. By default all groups are traversed. Use -lg to see available groups. May be either given as ID or name; when the argument is numeric, it is assumed to be the ID.', default=None)
     argparser.add_argument('-s', '--starred', dest='onlyFavourites', action='store_const', const=True, default=False, help='Only process starred (favourite) items')
+    
     argparser.add_argument('-l', '--list', dest='list', action='store_const', const=True, default=False, help='In stead of processing a database, list available databases.')
     argparser.add_argument('-lf', '--list-folders', dest='listfolders', action='store_const', const=True, default=False, help='Just list all available Mendeley folders')
+    argparser.add_argument('-lg', '--list-groups', dest='listgroups', action='store_const', const=True, default=False, help='Just list all available Mendeley groups')
+    
     argparser.add_argument('-k', '--write-keys', dest='writebackKeys', action='store_const', const=True, default=False, help='When an absent citation key is generated, write it back to the Mendeley database. NOTE: this only works when Mendeley Desktop is not running, since it locks its database')
     argparser.add_argument('-v', '--verbose', dest='loglevel', action='store_const', const=logging.DEBUG, default=logging.INFO, help='Set debug level to DEBUG in stead of INFO')
     args = argparser.parse_args()
@@ -237,6 +261,13 @@ if __name__=='__main__':
             for (id, folder) in sorted(db.getFolders().items(), key=lambda x: x[1]):
                 print('%d: %s' % (id, folder))
             sys.exit(0)
+            
+    if args.listgroups:
+        with m2b.openDatabase(args.dbfile) as db:
+            print('Available Mendeley groups:')
+            for (id, group) in sorted(db.getGroups().items(), key=lambda x: x[1]):
+                print('%d: %s' % (id, group))
+            sys.exit(0)
 
     numConverted = 0
 
@@ -246,9 +277,15 @@ if __name__=='__main__':
         if args.folder:
             folderID = db.getFolderID(args.folder)
             if folderID is None:
-                log.error('Folder \'%s\' not found! Use --lf to list available folders.' % args.folder)
+                log.error('Folder \'%s\' not found! Use -lf to list available folders.' % args.folder)
                 sys.exit(-1)
-        (numConverted, output) = BibConverter(db).convertEntries(db.getEntries(folder=folderID, onlyFavourites=args.onlyFavourites, writebackKeys=args.writebackKeys))
+        groupID = None
+        if args.group:
+            groupID = db.getGroupID(args.group)
+            if groupID is None:
+                log.error('Group \'%s\' not found! Use -lg to list available groups.' % args.group)
+                sys.exit(-1)
+        (numConverted, output) = BibConverter(db).convertEntries(db.getEntries(folder=folderID, group=groupID, onlyFavourites=args.onlyFavourites, writebackKeys=args.writebackKeys))
         print(output)
 
     log.info('Successfully converted %d Mendeley Desktop entries from database %s' % (numConverted, args.dbfile))
