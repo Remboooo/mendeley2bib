@@ -2,6 +2,9 @@
 from mendeley2bib import MendeleyEntryConverter
 from textwrap import dedent
 import latex
+import logging
+
+log = logging.getLogger(__name__)
 
 latex.register()
 
@@ -24,6 +27,7 @@ class BibConverter(MendeleyEntryConverter):
             "Book": "book",
             "BookSection": "incollection",
             "Patent": "patent",
+            "Report": "techreport",
             "Thesis": "thesis",
             "WebPage": "misc",
         }
@@ -83,15 +87,20 @@ class BibConverter(MendeleyEntryConverter):
                 'publisher',
                 'volume',
             ],
-
             "Patent": [
                 ('holder', 'owner'),
                 ('number', 'revisionNumber'),
                 'publisher',
             ],
+            "Report": [
+                'institution',
+                ('type', lambda x: self.getUserType('Report', x)),
+                ('number', 'seriesNumber'),
+                ('address', 'city'),
+            ],
             "Thesis": [
                 'department',
-                ('type', self.getUserType),
+                ('type', lambda x: self.getUserType('Thesis', x)),
                 'institution',
                 'publisher',
             ],
@@ -134,9 +143,9 @@ class BibConverter(MendeleyEntryConverter):
         url = self.db.getURL(entry)
         return ('{\\url{%s}}' % self.processGenericEntry(url)) if url else None
 
-    def getUserType(self, entry):
+    def getUserType(self, entryType, entry):
         # only defined here to be able to warn the user if it is not present
         if not entry['userType']:
-            log.warning('Entry \'%s\' is of type \'Thesis\', but requires a field \'type\' not set automatically by Mendeley. Please use the \'Type\' field to specify the type of thesis, e.g. \'Master\'s Thesis\' or \'PhD Thesis\'!' % entry['citationKey'])
+            log.warning('Entry \'%s\' is of type \'%s\', but requires a field \'type\' not set automatically by Mendeley. Please use the \'Type\' field to specify the type of thesis, e.g. \'Master\'s Thesis\' or \'PhD Thesis\'!' % (entry['citationKey'],entryType))
         return self.processGenericEntry(entry['userType'])
 
