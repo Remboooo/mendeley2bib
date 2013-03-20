@@ -140,12 +140,16 @@ class Mendeley2Bib:
 
         def getURL(self, entry):
             url = self.conn.execute('SELECT * FROM DocumentUrls WHERE documentId=? LIMIT 1', [entry['id']]).fetchone()
-            return url['url'] if url else None
+            return self.fixString(url['url']) if url else None
 
         def getURLs(self, entry):
             urls = self.conn.execute('SELECT * FROM DocumentUrls WHERE documentId=?', [entry['id']]).fetchall()
-            return [url['url'] for url in urls] if urls else []
+            return [self.fixString(url['url']) for url in urls] if urls else []
 
+        def fixString(self, input):
+            if not isinstance(input, str):
+                return input.decode("utf-8")
+            return input
 
 """
 'Abstract' class which should be extended by all converter classes to convert a list of entries into an output string.
