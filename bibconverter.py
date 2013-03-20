@@ -29,6 +29,7 @@ class BibConverter(MendeleyEntryConverter):
             "Patent": "patent",
             "Report": "techreport",
             "Thesis": "thesis",
+            "Generic": "misc",
             "WebPage": "misc",
         }
         """ Key-value pairs that will be added to all entries.
@@ -48,7 +49,6 @@ class BibConverter(MendeleyEntryConverter):
             'isbn',
             'issn',
             'doi',
-            'note',
         ]
         # Type-specific key-value pairs
         self.entryMap = {
@@ -105,6 +105,10 @@ class BibConverter(MendeleyEntryConverter):
                 'publisher',
             ],
             "WebPage": [
+                ('howpublished', self.getHowPublishedURL),
+            ],
+            "Generic": [
+                ('type', 'sourceType'),
                 ('howpublished', self.getHowPublishedURL),
             ]
         }
